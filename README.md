@@ -88,19 +88,44 @@ This repository is public. Do not commit passwords, API keys, Auth0 secrets, tok
 
 No native Tesseract installation is required. OCR for scanned utility bills runs in the browser using Tesseract.js. The first OCR run downloads the Tesseract worker, language data, and WebAssembly core, so the browser needs network access unless those assets are self-hosted.
 
-### 1. Database
+### 1. Environment setup
+
+This repository intentionally keeps real secrets out of Git. Create local `.env` files from the example templates in each folder, then fill in your own values.
+
+Copy the example files before editing them:
+
+```bash
+cp backend/.env.example backend/.env
+cp docker/.env.example docker/.env
+cp frontend/.env.example frontend/.env
+```
+
+1. Start with the Docker database values in `docker/.env`.
+2. Use those exact values in the backend `DATABASE_URL` in `backend/.env`.
+3. Add the Auth0 values in both the backend and frontend env files.
+4. Add your own OpenAI API key in `backend/.env`.
+
+Use the local values from the project team where required:
+
+- For Auth0 values, look in the Auth0 dashboard for the application/domain, client ID, and API audience. If you are working on this repo with the project team, reach out to the project maintainer for the shared development values.
+- (Local Testing) For the OpenAI key, create or access your own API key in the OpenAI dashboard and place it in `backend/.env`.
+- For the database values, check the local Docker config in `docker/.env`: `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`. Those values are the same ones that should be used in the backend connection string `DATABASE_URL`.
+
+Do not commit any real `.env` file.
+
+### 2. Database
 
 The Docker Compose configuration runs PostgreSQL only. It does not build or run the backend or frontend. `docker compose up -d` creates the database container if it does not already exist and starts it in the background; subsequent runs start the existing container.
 
-Before starting it, create `docker/.env` using the private values supplied by the development team:
+Create `docker/.env` first using your local values:
 
 ```env
-POSTGRES_USER=<development database username>
-POSTGRES_PASSWORD=<development database password>
-POSTGRES_DB=<development database name>
+POSTGRES_USER=your_local_db_user
+POSTGRES_PASSWORD=your_local_db_password
+POSTGRES_DB=your_local_db_name
 ```
 
-Do not replace these placeholders with real credentials in a commit.
+These are the values that will power the local Postgres container. The backend database URL must match them exactly.
 
 ```bash
 cd docker
@@ -135,9 +160,9 @@ docker compose down -v
 docker compose up -d
 ```
 
-The reset command permanently deletes the PostgreSQL volume. Only use it for a fresh local setup or when instructed by the development team.
+The reset command permanently deletes the PostgreSQL volume. Only use it for a fresh local setup or when instructed by the project maintainer.
 
-### 2. Backend
+### 3. Backend
 
 ```bash
 cd backend
@@ -148,16 +173,22 @@ pip install -r requirements.txt
 
 The backend requirements do not include `pytesseract` or a native Tesseract executable. The backend handles PDF uploads and OpenAI utility extraction; browser OCR supplies text for scanned utility PDFs.
 
-Create a `.env` file in `backend/`:
+Create a `.env` file in `backend/` from the example file and fill in your values:
 
 ```env
-DATABASE_URL=postgresql://<development database username>:<development database password>@localhost:5432/<development database name>
+DATABASE_URL=postgresql://your_local_db_user:your_local_db_password@localhost:5432/your_local_db_name
+OPENAI_API_KEY=your_openai_api_key_here
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_API_AUDIENCE=your-api-identifier
-OPENAI_API_KEY=<development OpenAI API key>
+AUTH0_ALGORITHMS=RS256
+ALLOWED_ORIGINS=http://localhost:5173
 ```
 
-Obtain the database URL, Auth0 values, and OpenAI API key from the development team. Do not paste private values into the README or commit your local `.env` file.
+Notes:
+
+- `OPENAI_API_KEY` should be your own API key; do not reuse someone else’s key.
+- `AUTH0_DOMAIN`, `AUTH0_API_AUDIENCE`, and related values should be requested from the project maintainer.
+- `AUTH0_ALGORITHMS` and `ALLOWED_ORIGINS` are optional and usually default correctly for local development.
 
 Run the server:
 
@@ -167,7 +198,7 @@ uvicorn app.main:app --reload --port 8000
 
 Tables are created automatically on first start via `Base.metadata.create_all()`.
 
-### 3. Frontend
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -176,13 +207,12 @@ npm install
 
 This installs the frontend OCR dependency (`tesseract.js`) as well as the existing PDF.js dependency. No separate OCR installer is needed on the developer machine or end-user machine.
 
-Create a `.env` file in `frontend/`:
+Create a `.env` file in `frontend/` from the example file and fill in the Auth0 values:
 
 ```env
 VITE_AUTH0_DOMAIN=your-tenant.auth0.com
 VITE_AUTH0_CLIENT_ID=your-client-id
 VITE_AUTH0_AUDIENCE=your-api-identifier
-VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
 Run the dev server:
@@ -192,15 +222,6 @@ npm run dev
 ```
 
 Open `http://localhost:5173`.
-
-### Auth0 Configuration
-
-1. Create a **Single Page Application** in Auth0
-2. Set Allowed Callback URLs: `http://localhost:5173/callback`
-3. Set Allowed Logout URLs: `http://localhost:5173`
-4. Set Allowed Web Origins: `http://localhost:5173`
-5. Create an **API** with your chosen identifier
-6. Use the domain, client ID, and audience in your `.env` files
 
 ## Usage
 
