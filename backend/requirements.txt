@@ -1,0 +1,17 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+sqlalchemy==2.0.31
+psycopg2-binary==2.9.9
+pydantic-settings==2.3.0
+python-multipart==0.0.9
+python-jose[cryptography]==3.3.0
+httpx==0.28.1
+alembic==1.13.1
+
+# Utility parsing: OpenAI extraction; OCR runs in the browser via Tesseract.js
+llama-index==0.11.0
+openai==1.40.0
+pymupdf==1.24.10
+
+# Appraisal parsing (local only)
+pdfplumber==0.11.2

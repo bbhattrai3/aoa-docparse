@@ -1,0 +1,15 @@
+node_modules/\n__pycache__/\n.env\n*.pyc\nvenv/\n.next/
+.env
+\venv
+__pycache__/
+*.pyc
+*.pyo
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+docker/.env
+backend/.env
+frontend/.env
+
