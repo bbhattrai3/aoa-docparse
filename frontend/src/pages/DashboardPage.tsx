@@ -748,12 +748,6 @@ export default function DashboardPage() {
 
             {/* Upload bar */}
             <div className="border-t border-stone-100 px-5 py-3 bg-stone-50/50">
-              {isAdmin && <div className="flex justify-end mb-2">
-                <button onClick={() => setShowViewerInvite(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-white border border-stone-300 text-stone-700 hover:bg-stone-50">
-                  + Add Viewer
-                </button>
-              </div>}
               {!isAdmin && <p className="text-xs text-stone-500 mb-2">Viewer access is read-only.</p>}
               <div className="flex items-center gap-3">
                 <span className="text-xs text-stone-500">Upload:</span>
@@ -770,6 +764,10 @@ export default function DashboardPage() {
                   <input ref={fileRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleFilesSelected}
                     disabled={uploading} />
                 </label>}
+                {isAdmin && <button onClick={() => setShowViewerInvite(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-white border border-stone-300 text-stone-700 hover:bg-stone-50">
+                  + Add Viewer
+                </button>}
                 {isAdmin && stagedFiles.length > 0 && !uploading && (
                   <button onClick={parseAndUpload} className="bg-stone-800 hover:bg-stone-900 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition-colors">
                     {uploadType === "appraisal" ? `Enter Data (${stagedFiles.length})` : `Parse & Upload (${stagedFiles.length})`}
@@ -781,7 +779,7 @@ export default function DashboardPage() {
               {showViewerInvite && isAdmin && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
                   <h2 className="text-lg font-semibold text-stone-800">Add Viewer</h2>
-                  <p className="text-sm text-stone-500 mt-1">Send a read-only invitation to this parish.</p>
+                  <p className="text-sm text-stone-500 mt-1">Send a view-only invitation to this parish.</p>
                   <input type="email" value={viewerEmail} onChange={(event) => setViewerEmail(event.target.value)}
                     placeholder="viewer@example.com" className="w-full mt-4 border border-stone-300 rounded-lg px-3 py-2 text-sm" />
                   <div className="mt-4 space-y-2">
