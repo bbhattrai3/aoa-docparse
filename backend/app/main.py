@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 from app.database import engine, Base
 from app.config import settings
 from app.routers import parishes, upload, data, templates, parish_data, account
@@ -17,6 +18,33 @@ from app.models.parish_member import ParishMember  # noqa
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
+
+
+def migrate_parish_ownership():
+    inspector = inspect(engine)
+    parish_columns = {column["name"] for column in inspector.get_columns("parishes")}
+    if "owner_account_id" not in parish_columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE parishes ADD COLUMN owner_account_id INTEGER "
+                "REFERENCES accounts(id)"
+            ))
+            connection.execute(text(
+                "UPDATE parishes p SET owner_account_id = pm.account_id "
+                "FROM parish_members pm "
+                "WHERE pm.parish_id = p.id AND pm.role = 'admin' "
+                "AND pm.account_id IS NOT NULL"
+            ))
+            connection.execute(text(
+                "ALTER TABLE parishes DROP CONSTRAINT IF EXISTS parishes_name_key"
+            ))
+            connection.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_parish_owner_name "
+                "ON parishes (owner_account_id, name)"
+            ))
+
+
+migrate_parish_ownership()
 
 app = FastAPI(title="Parish Document Parser API", version="0.1.0")
 

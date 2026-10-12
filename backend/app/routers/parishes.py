@@ -22,14 +22,27 @@ def list_parishes(db: Session = Depends(get_db), account=Depends(current_account
 
 @router.post("/", response_model=ParishResponse)
 def create_parish(data: ParishCreate, db: Session = Depends(get_db), account=Depends(require_admin_account)):
-    existing = db.query(Parish).filter(Parish.name == data.name).first()
+    existing = db.query(Parish).filter(
+        Parish.owner_account_id == account.id,
+        Parish.name == data.name,
+    ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Parish already exists")
-    parish = Parish(name=data.name, diocese=data.diocese, address=data.address)
+        raise HTTPException(status_code=400, detail="You already have a parish with this name")
+    parish = Parish(
+        name=data.name,
+        owner_account_id=account.id,
+        diocese=data.diocese,
+        address=data.address,
+    )
     db.add(parish)
     db.flush()  # Get the parish ID before adding buildings
     from app.models.parish_member import ParishMember
-    db.add(ParishMember(parish_id=parish.id, account_id=account.id, email=account.email, role="admin"))
+    db.add(ParishMember(
+        parish_id=parish.id,
+        account_id=account.id,
+        email=account.email,
+        role="admin",
+    ))
 
     # Create buildings if provided
     if data.buildings:

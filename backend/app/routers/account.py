@@ -116,6 +116,8 @@ def accept_invitation(token: str, user=Depends(verify_token), db: Session = Depe
     if not member:
         raise HTTPException(status_code=404, detail="Invitation not found or already accepted")
     email = (user.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Viewer invitations require an authenticated email address")
     if email != member.email:
         raise HTTPException(status_code=403, detail="Sign in with the invited email address")
     account = db.query(Account).filter(Account.auth0_sub == user["sub"]).first()

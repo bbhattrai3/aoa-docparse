@@ -749,7 +749,10 @@ export default function DashboardPage() {
             {/* Upload bar */}
             <div className="border-t border-stone-100 px-5 py-3 bg-stone-50/50">
               {isAdmin && <div className="flex justify-end mb-2">
-                <button onClick={() => setShowViewerInvite(true)} className="text-xs font-medium text-blue-600 hover:text-blue-700">Add Viewer</button>
+                <button onClick={() => setShowViewerInvite(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-white border border-stone-300 text-stone-700 hover:bg-stone-50">
+                  + Add Viewer
+                </button>
               </div>}
               {!isAdmin && <p className="text-xs text-stone-500 mb-2">Viewer access is read-only.</p>}
               <div className="flex items-center gap-3">

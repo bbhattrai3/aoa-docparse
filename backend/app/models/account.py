@@ -14,3 +14,4 @@ class Account(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     memberships = relationship("ParishMember", back_populates="account", cascade="all, delete-orphan")
+    owned_parishes = relationship("Parish", back_populates="owner")

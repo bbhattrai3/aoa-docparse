@@ -55,15 +55,16 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 def current_account(user=Depends(verify_token), db: Session = Depends(get_db)):
     sub = user.get("sub")
     email = (user.get("email") or "").strip().lower()
+    if not sub:
+        raise HTTPException(status_code=401, detail="Authenticated user ID is missing")
+    identity = email or f"auth0:{sub}"
     account = db.query(Account).filter(Account.auth0_sub == sub).first()
     if account:
         return account
-    if not email:
-        raise HTTPException(status_code=400, detail="Authenticated email is required")
     pending = db.query(ParishMember).filter(
         ParishMember.email == email, ParishMember.account_id.is_(None)
-    ).all()
-    account = Account(auth0_sub=sub, email=email, role="viewer" if pending else "admin")
+    ).all() if email else []
+    account = Account(auth0_sub=sub, email=identity, role="viewer" if pending else "admin")
     db.add(account)
     db.flush()
     for membership in pending:
