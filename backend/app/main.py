@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.config import settings
-from app.routers import parishes, upload, data, templates, parish_data
+from app.routers import parishes, upload, data, templates, parish_data, account
 
 # Import all models so create_all picks them up
 from app.models.parish import Parish  # noqa
@@ -12,6 +12,8 @@ from app.models.extraction_template import ExtractionTemplate  # noqa
 from app.models.todo import Todo  # noqa
 from app.models.history_entry import HistoryEntry  # noqa
 from app.models.building import Building  # noqa
+from app.models.account import Account  # noqa
+from app.models.parish_member import ParishMember  # noqa
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
@@ -33,6 +35,7 @@ app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(data.router, prefix="/api/data", tags=["Data"])
 app.include_router(templates.router, prefix="/api/templates", tags=["Templates"])
 app.include_router(parish_data.router, prefix="/api/parishes", tags=["Parish Data"])
+app.include_router(account.router, prefix="/api/account", tags=["Account"])
 
 
 @app.get("/api/health")

@@ -103,6 +103,11 @@ export default function DashboardPage() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [parishImage, setParishImage] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showViewerInvite, setShowViewerInvite] = useState(false);
+  const [viewerEmail, setViewerEmail] = useState("");
+  const [viewerMessage, setViewerMessage] = useState("");
+  const [viewers, setViewers] = useState<{ id: number; email: string }[]>([]);
 
   // Add task form (used from dashboard + risks tab)
   const [showAddTask, setShowAddTask] = useState(false);
@@ -145,6 +150,8 @@ export default function DashboardPage() {
     try {
       const token = await getAccessTokenSilently();
       setAuthToken(token);
+      const accountRes = await api.get("/account/me");
+      setIsAdmin(accountRes.data.role === "admin");
       const [pRes, uRes, aRes, tRes, todoRes, histRes] = await Promise.all([
         api.get(`/parishes/${parishId}`),
         api.get(`/data/utility/${parishId}`),
@@ -167,11 +174,34 @@ export default function DashboardPage() {
       setHistory(histRes.data.map((h: any) => ({
         id: h.id, type: h.entry_type, description: h.description, date: h.created_at, undone: h.undone, user_email: h.user_email, user_name: h.user_name,
       })));
+      if (accountRes.data.role === "admin") {
+        const viewersRes = await api.get(`/account/parishes/${parishId}/viewers`);
+        setViewers(viewersRes.data);
+      }
     } catch (err) { console.error("Dashboard load error:", err); }
     finally { setLoading(false); }
   }, [parishId, getAccessTokenSilently]);
 
   useEffect(() => { refreshData(); }, [refreshData]);
+
+  const inviteViewer = async () => {
+    try {
+      const token = await getAccessTokenSilently();
+      setAuthToken(token);
+      await api.post(`/account/parishes/${parishId}/viewers`, { email: viewerEmail });
+      setViewerEmail("");
+      setViewerMessage("Invitation sent.");
+      const response = await api.get(`/account/parishes/${parishId}/viewers`);
+      setViewers(response.data);
+    } catch (error: any) {
+      setViewerMessage(error?.response?.data?.detail || "Could not send invitation.");
+    }
+  };
+
+  const removeViewer = async (id: number) => {
+    await api.delete(`/account/parishes/${parishId}/viewers/${id}`);
+    setViewers((current) => current.filter((viewer) => viewer.id !== id));
+  };
 
   // ── History helper (API-backed) ──
   const addHistory = useCallback(async (type: string, description: string) => {
@@ -718,6 +748,10 @@ export default function DashboardPage() {
 
             {/* Upload bar */}
             <div className="border-t border-stone-100 px-5 py-3 bg-stone-50/50">
+              {isAdmin && <div className="flex justify-end mb-2">
+                <button onClick={() => setShowViewerInvite(true)} className="text-xs font-medium text-blue-600 hover:text-blue-700">Add Viewer</button>
+              </div>}
+              {!isAdmin && <p className="text-xs text-stone-500 mb-2">Viewer access is read-only.</p>}
               <div className="flex items-center gap-3">
                 <span className="text-xs text-stone-500">Upload:</span>
                 <div className="flex rounded-lg border border-stone-200 overflow-hidden">
@@ -728,18 +762,37 @@ export default function DashboardPage() {
                     </button>
                   ))}
                 </div>
-                <label className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors bg-white border border-stone-300 text-stone-700 hover:bg-stone-50">
+                {isAdmin && <label className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors bg-white border border-stone-300 text-stone-700 hover:bg-stone-50">
                   + Add Files
                   <input ref={fileRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleFilesSelected}
                     disabled={uploading} />
-                </label>
-                {stagedFiles.length > 0 && !uploading && (
+                </label>}
+                {isAdmin && stagedFiles.length > 0 && !uploading && (
                   <button onClick={parseAndUpload} className="bg-stone-800 hover:bg-stone-900 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition-colors">
                     {uploadType === "appraisal" ? `Enter Data (${stagedFiles.length})` : `Parse & Upload (${stagedFiles.length})`}
                   </button>
                 )}
                 {uploadMsg && <span className={`text-xs ${uploadMsg.includes("success") ? "text-emerald-600" : "text-red-500"}`}>{uploadMsg}</span>}
               </div>
+
+              {showViewerInvite && isAdmin && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+                  <h2 className="text-lg font-semibold text-stone-800">Add Viewer</h2>
+                  <p className="text-sm text-stone-500 mt-1">Send a read-only invitation to this parish.</p>
+                  <input type="email" value={viewerEmail} onChange={(event) => setViewerEmail(event.target.value)}
+                    placeholder="viewer@example.com" className="w-full mt-4 border border-stone-300 rounded-lg px-3 py-2 text-sm" />
+                  <div className="mt-4 space-y-2">
+                    {viewers.map((viewer) => <div key={viewer.id} className="flex justify-between text-sm text-stone-600">
+                      <span>{viewer.email}</span><button onClick={() => removeViewer(viewer.id)} className="text-red-500">Delete</button>
+                    </div>)}
+                  </div>
+                  {viewerMessage && <p className="text-sm text-stone-500 mt-3">{viewerMessage}</p>}
+                  <div className="flex justify-end gap-2 mt-5">
+                    <button onClick={() => setShowViewerInvite(false)} className="text-sm text-stone-500 px-3 py-2">Close</button>
+                    <button onClick={inviteViewer} disabled={!viewerEmail.trim()} className="bg-stone-800 disabled:bg-stone-300 text-white rounded-lg px-3 py-2 text-sm">Send Invite</button>
+                  </div>
+                </div>
+              </div>}
 
               {/* Staged files list */}
               {(stagedFiles.length > 0 || Object.keys(uploadProgress).length > 0) && (

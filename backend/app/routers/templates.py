@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth import verify_token
+from app.auth import current_account, require_admin_account
 from pydantic import BaseModel
 from typing import Optional, List
 from app.models.extraction_template import ExtractionTemplate
@@ -50,13 +50,13 @@ class TemplateResponse(BaseModel):
 # --- Endpoints ---
 
 @router.get("/", response_model=List[TemplateResponse])
-def list_templates(db: Session = Depends(get_db), user=Depends(verify_token)):
+def list_templates(db: Session = Depends(get_db), user=Depends(current_account)):
     templates = db.query(ExtractionTemplate).order_by(ExtractionTemplate.updated_at.desc()).all()
     return [_to_response(t) for t in templates]
 
 
 @router.get("/{template_id}", response_model=TemplateResponse)
-def get_template(template_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def get_template(template_id: int, db: Session = Depends(get_db), user=Depends(current_account)):
     template = db.query(ExtractionTemplate).filter(ExtractionTemplate.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -64,7 +64,7 @@ def get_template(template_id: int, db: Session = Depends(get_db), user=Depends(v
 
 
 @router.post("/", response_model=TemplateResponse)
-def create_template(data: TemplateCreate, db: Session = Depends(get_db), user=Depends(verify_token)):
+def create_template(data: TemplateCreate, db: Session = Depends(get_db), user=Depends(require_admin_account)):
     template = ExtractionTemplate(
         name=data.name,
         description=data.description,
@@ -82,7 +82,7 @@ def update_template(
     template_id: int,
     data: TemplateUpdate,
     db: Session = Depends(get_db),
-    user=Depends(verify_token),
+    user=Depends(require_admin_account),
 ):
     template = db.query(ExtractionTemplate).filter(ExtractionTemplate.id == template_id).first()
     if not template:
@@ -103,7 +103,7 @@ def update_template(
 
 
 @router.delete("/{template_id}")
-def delete_template(template_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def delete_template(template_id: int, db: Session = Depends(get_db), user=Depends(require_admin_account)):
     template = db.query(ExtractionTemplate).filter(ExtractionTemplate.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -113,7 +113,7 @@ def delete_template(template_id: int, db: Session = Depends(get_db), user=Depend
 
 
 @router.post("/{template_id}/set-default")
-def set_default_template(template_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def set_default_template(template_id: int, db: Session = Depends(get_db), user=Depends(require_admin_account)):
     # Unset all defaults
     db.query(ExtractionTemplate).update({ExtractionTemplate.is_default: False})
     # Set new default

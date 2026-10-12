@@ -7,25 +7,29 @@ from app.schemas.documents import (
     ParishCreate, ParishUpdate, ParishResponse,
     BuildingCreate, BuildingUpdate, BuildingResponse,
 )
-from app.auth import verify_token
+from app.auth import current_account, parish_access, parish_admin_access, require_admin_account
 from typing import List
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[ParishResponse])
-def list_parishes(db: Session = Depends(get_db), user=Depends(verify_token)):
-    return db.query(Parish).all()
+def list_parishes(db: Session = Depends(get_db), account=Depends(current_account)):
+    return db.query(Parish).join(Parish.members).filter(
+        Parish.members.any(account_id=account.id)
+    ).all()
 
 
 @router.post("/", response_model=ParishResponse)
-def create_parish(data: ParishCreate, db: Session = Depends(get_db), user=Depends(verify_token)):
+def create_parish(data: ParishCreate, db: Session = Depends(get_db), account=Depends(require_admin_account)):
     existing = db.query(Parish).filter(Parish.name == data.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Parish already exists")
     parish = Parish(name=data.name, diocese=data.diocese, address=data.address)
     db.add(parish)
     db.flush()  # Get the parish ID before adding buildings
+    from app.models.parish_member import ParishMember
+    db.add(ParishMember(parish_id=parish.id, account_id=account.id, email=account.email, role="admin"))
 
     # Create buildings if provided
     if data.buildings:
@@ -39,7 +43,7 @@ def create_parish(data: ParishCreate, db: Session = Depends(get_db), user=Depend
 
 
 @router.get("/{parish_id}", response_model=ParishResponse)
-def get_parish(parish_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def get_parish(parish_id: int, db: Session = Depends(get_db), membership=Depends(parish_access)):
     parish = db.query(Parish).filter(Parish.id == parish_id).first()
     if not parish:
         raise HTTPException(status_code=404, detail="Parish not found")
@@ -47,7 +51,7 @@ def get_parish(parish_id: int, db: Session = Depends(get_db), user=Depends(verif
 
 
 @router.put("/{parish_id}", response_model=ParishResponse)
-def update_parish(parish_id: int, data: ParishUpdate, db: Session = Depends(get_db), user=Depends(verify_token)):
+def update_parish(parish_id: int, data: ParishUpdate, db: Session = Depends(get_db), membership=Depends(parish_admin_access)):
     parish = db.query(Parish).filter(Parish.id == parish_id).first()
     if not parish:
         raise HTTPException(status_code=404, detail="Parish not found")
@@ -65,7 +69,7 @@ def update_parish(parish_id: int, data: ParishUpdate, db: Session = Depends(get_
 
 
 @router.delete("/{parish_id}")
-def delete_parish(parish_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def delete_parish(parish_id: int, db: Session = Depends(get_db), membership=Depends(parish_admin_access)):
     parish = db.query(Parish).filter(Parish.id == parish_id).first()
     if not parish:
         raise HTTPException(status_code=404, detail="Parish not found")
@@ -77,12 +81,12 @@ def delete_parish(parish_id: int, db: Session = Depends(get_db), user=Depends(ve
 # ── Building CRUD ──
 
 @router.get("/{parish_id}/buildings", response_model=List[BuildingResponse])
-def list_buildings(parish_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def list_buildings(parish_id: int, db: Session = Depends(get_db), membership=Depends(parish_access)):
     return db.query(Building).filter(Building.parish_id == parish_id).order_by(Building.id.asc()).all()
 
 
 @router.post("/{parish_id}/buildings", response_model=BuildingResponse)
-def create_building(parish_id: int, data: BuildingCreate, db: Session = Depends(get_db), user=Depends(verify_token)):
+def create_building(parish_id: int, data: BuildingCreate, db: Session = Depends(get_db), membership=Depends(parish_admin_access)):
     building = Building(parish_id=parish_id, name=data.name, account_numbers=data.account_numbers or {})
     db.add(building)
     db.commit()
@@ -91,7 +95,7 @@ def create_building(parish_id: int, data: BuildingCreate, db: Session = Depends(
 
 
 @router.put("/{parish_id}/buildings/{building_id}", response_model=BuildingResponse)
-def update_building(parish_id: int, building_id: int, data: BuildingUpdate, db: Session = Depends(get_db), user=Depends(verify_token)):
+def update_building(parish_id: int, building_id: int, data: BuildingUpdate, db: Session = Depends(get_db), membership=Depends(parish_admin_access)):
     building = db.query(Building).filter(Building.id == building_id, Building.parish_id == parish_id).first()
     if not building:
         raise HTTPException(status_code=404, detail="Building not found")
@@ -105,7 +109,7 @@ def update_building(parish_id: int, building_id: int, data: BuildingUpdate, db: 
 
 
 @router.delete("/{parish_id}/buildings/{building_id}")
-def delete_building(parish_id: int, building_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def delete_building(parish_id: int, building_id: int, db: Session = Depends(get_db), membership=Depends(parish_admin_access)):
     building = db.query(Building).filter(Building.id == building_id, Building.parish_id == parish_id).first()
     if not building:
         raise HTTPException(status_code=404, detail="Building not found")

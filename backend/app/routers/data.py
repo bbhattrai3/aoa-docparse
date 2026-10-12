@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth import verify_token
+from app.auth import parish_access, parish_admin_access, require_admin_account
 from app.models.utility_bill import UtilityBill
 from app.models.appraisal import Appraisal
 from app.models.building import Building
@@ -45,7 +45,7 @@ def get_utility_data(
     utility_type: str = Query(None),
     building_name: str = Query(None),
     db: Session = Depends(get_db),
-    user=Depends(verify_token),
+    membership=Depends(parish_access),
 ):
     query = db.query(UtilityBill).filter(UtilityBill.parish_id == parish_id)
     if utility_type:
@@ -86,7 +86,7 @@ def update_utility_bill(
     bill_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    user=Depends(verify_token),
+    account=Depends(require_admin_account),
 ):
     record = db.query(UtilityBill).filter(UtilityBill.id == bill_id).first()
     if not record:
@@ -136,7 +136,7 @@ def update_utility_bill(
 
 
 @router.delete("/utility/{bill_id}")
-def delete_utility_bill(bill_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def delete_utility_bill(bill_id: int, db: Session = Depends(get_db), account=Depends(require_admin_account)):
     record = db.query(UtilityBill).filter(UtilityBill.id == bill_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Utility bill not found")
@@ -150,7 +150,7 @@ def delete_utility_bill(bill_id: int, db: Session = Depends(get_db), user=Depend
 # ── Appraisal endpoints ──
 
 @router.get("/appraisal/{parish_id}", response_model=List[AppraisalChartPoint])
-def get_appraisal_data(parish_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def get_appraisal_data(parish_id: int, db: Session = Depends(get_db), membership=Depends(parish_access)):
     records = db.query(Appraisal).filter(Appraisal.parish_id == parish_id).order_by(Appraisal.appraisal_date.asc()).all()
     results = []
     for r in records:
@@ -195,7 +195,7 @@ def get_appraisal_data(parish_id: int, db: Session = Depends(get_db), user=Depen
 
 
 @router.put("/appraisal/{appraisal_id}")
-def update_appraisal(appraisal_id: int, data: dict, db: Session = Depends(get_db), user=Depends(verify_token)):
+def update_appraisal(appraisal_id: int, data: dict, db: Session = Depends(get_db), account=Depends(require_admin_account)):
     """Edit an appraisal record. Updates both the DB record and the raw_extracted sections."""
     from datetime import date as date_type
 
@@ -284,7 +284,7 @@ def update_appraisal(appraisal_id: int, data: dict, db: Session = Depends(get_db
 
 
 @router.delete("/appraisal/{appraisal_id}")
-def delete_appraisal(appraisal_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def delete_appraisal(appraisal_id: int, db: Session = Depends(get_db), account=Depends(require_admin_account)):
     record = db.query(Appraisal).filter(Appraisal.id == appraisal_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Appraisal not found")
@@ -296,7 +296,7 @@ def delete_appraisal(appraisal_id: int, db: Session = Depends(get_db), user=Depe
 
 
 @router.post("/appraisal/manual")
-def create_appraisal_manual(data: dict, db: Session = Depends(get_db), user=Depends(verify_token)):
+def create_appraisal_manual(data: dict, db: Session = Depends(get_db), account=Depends(require_admin_account)):
     from datetime import date as date_type
 
     parish_id = data.get("parish_id")
@@ -357,7 +357,7 @@ def create_appraisal_manual(data: dict, db: Session = Depends(get_db), user=Depe
 # ── Mark history as removed ──
 
 @router.post("/history/{entry_id}/mark-removed")
-def mark_history_removed(entry_id: int, db: Session = Depends(get_db), user=Depends(verify_token)):
+def mark_history_removed(entry_id: int, db: Session = Depends(get_db), account=Depends(require_admin_account)):
     """Mark a history entry as 'removed' (data was deleted) without deleting the entry itself."""
     entry = db.query(HistoryEntry).filter(HistoryEntry.id == entry_id).first()
     if not entry:

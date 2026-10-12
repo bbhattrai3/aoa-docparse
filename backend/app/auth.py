@@ -4,6 +4,10 @@ from jose import jwt, JWTError
 import httpx
 from functools import lru_cache
 from app.config import settings
+from app.models.account import Account
+from app.models.parish_member import ParishMember
+from app.database import get_db
+from sqlalchemy.orm import Session
 
 security = HTTPBearer()
 
@@ -46,3 +50,52 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
     except JWTError as e:
         raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
+
+
+def current_account(user=Depends(verify_token), db: Session = Depends(get_db)):
+    sub = user.get("sub")
+    email = (user.get("email") or "").strip().lower()
+    account = db.query(Account).filter(Account.auth0_sub == sub).first()
+    if account:
+        return account
+    if not email:
+        raise HTTPException(status_code=400, detail="Authenticated email is required")
+    pending = db.query(ParishMember).filter(
+        ParishMember.email == email, ParishMember.account_id.is_(None)
+    ).all()
+    account = Account(auth0_sub=sub, email=email, role="viewer" if pending else "admin")
+    db.add(account)
+    db.flush()
+    for membership in pending:
+        membership.account_id = account.id
+        membership.invitation_token = None
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+def require_admin_account(account=Depends(current_account)):
+    if account.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
+    return account
+
+
+def parish_access(parish_id: int, account=Depends(current_account), db: Session = Depends(get_db)):
+    member = db.query(ParishMember).filter(
+        ParishMember.parish_id == parish_id,
+        ParishMember.account_id == account.id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Parish not found")
+    return member
+
+
+def parish_admin_access(parish_id: int, account=Depends(require_admin_account), db: Session = Depends(get_db)):
+    member = db.query(ParishMember).filter(
+        ParishMember.parish_id == parish_id,
+        ParishMember.account_id == account.id,
+        ParishMember.role == "admin",
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Parish not found")
+    return member

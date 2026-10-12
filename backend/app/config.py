@@ -7,6 +7,12 @@ class Settings(BaseSettings):
     auth0_api_audience: str = ""
     auth0_algorithms: str = "RS256"
     allowed_origins: str = "http://localhost:5173"  # Vite dev server
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    frontend_url: str = "http://localhost:5173"
 
     class Config:
         env_file = ".env"

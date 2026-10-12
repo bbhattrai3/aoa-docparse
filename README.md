@@ -76,6 +76,18 @@ parish-document-parser/
 
 ## Setup
 
+### Parish roles
+
+Authentication uses two local roles. The first person to authenticate without a
+pending invitation is automatically an administrator. Administrators can manage
+parish data and use **Add Viewer** on a parish dashboard to invite a viewer by
+email. The invitation link must be used with the invited email address.
+Viewers can read parish information but all data mutations are rejected by the
+API.
+
+Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+`SMTP_FROM`, and `FRONTEND_URL` in `backend/.env` to enable invitation email.
+
 ### Prerequisites
 
 - Node.js 18+

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth import verify_token
+from app.auth import parish_admin_access
 from app.schemas.documents import UploadResponse
 from app.parsers.utility_parser import parse_utility_bill
 from app.parsers.appraisal_parser import parse_appraisal
@@ -29,7 +29,7 @@ async def upload_document(
     doc_type: str = Form(...),  # "utility" or "appraisal"
     extracted_text: str | None = Form(None),
     db: Session = Depends(get_db),
-    user=Depends(verify_token),
+    membership=Depends(parish_admin_access),
 ):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
